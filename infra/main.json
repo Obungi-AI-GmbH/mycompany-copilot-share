@@ -1,0 +1,351 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.20.4.51522",
+      "templateHash": "7122564866023129597"
+    }
+  },
+  "parameters": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "metadata": {
+        "description": "Name of the the environment which is used to generate a short unique hash used in all resources."
+      }
+    },
+    "clientId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Client Id"
+      }
+    },
+    "clientSecret": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Client Secret"
+      }
+    },
+    "tenantId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Tenant Id"
+      }
+    }
+  },
+  "variables": {
+    "resourceToken": "[toLower(uniqueString(subscription().id, parameters('name'), resourceGroup().location))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "[format('resources-{0}', variables('resourceToken'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[parameters('name')]"
+          },
+          "clientId": {
+            "value": "[parameters('clientId')]"
+          },
+          "clientSecret": {
+            "value": "[parameters('clientSecret')]"
+          },
+          "tenantId": {
+            "value": "[parameters('tenantId')]"
+          },
+          "resourceToken": {
+            "value": "[variables('resourceToken')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.20.4.51522",
+              "templateHash": "15573187407188672050"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string"
+            },
+            "clientId": {
+              "type": "string"
+            },
+            "clientSecret": {
+              "type": "securestring"
+            },
+            "tenantId": {
+              "type": "string"
+            },
+            "resourceToken": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "location": "[resourceGroup().location]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.CognitiveServices/accounts",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}-openai-{1}', parameters('name'), parameters('resourceToken'))]",
+              "location": "[variables('location')]",
+              "kind": "OpenAI",
+              "properties": {
+                "customSubDomainName": "[format('{0}-openai-{1}', parameters('name'), parameters('resourceToken'))]"
+              },
+              "sku": {
+                "name": "S0"
+              }
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}blob{1}', parameters('name'), parameters('resourceToken'))]",
+              "location": "[variables('location')]",
+              "kind": "StorageV2",
+              "sku": {
+                "name": "Standard_LRS"
+              }
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices",
+              "apiVersion": "2019-06-01",
+              "name": "[format('{0}/{1}', format('{0}blob{1}', parameters('name'), parameters('resourceToken')), 'default')]",
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', format('{0}blob{1}', parameters('name'), parameters('resourceToken')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}/{2}', format('{0}blob{1}', parameters('name'), parameters('resourceToken')), 'default', 'mcc')]",
+              "properties": {
+                "publicAccess": "None"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', format('{0}blob{1}', parameters('name'), parameters('resourceToken')), 'default')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Web/serverfarms",
+              "apiVersion": "2020-06-01",
+              "name": "[format('{0}-app-{1}', parameters('name'), parameters('resourceToken'))]",
+              "location": "[variables('location')]",
+              "properties": {
+                "reserved": true
+              },
+              "sku": {
+                "name": "P0v3",
+                "tier": "Premium0V3",
+                "size": "P0v3",
+                "family": "Pv3",
+                "capacity": 1
+              },
+              "kind": "linux"
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}-formrecognizer-{1}', parameters('name'), parameters('resourceToken'))]",
+              "location": "[variables('location')]",
+              "kind": "FormRecognizer",
+              "sku": {
+                "name": "S0"
+              }
+            },
+            {
+              "type": "Microsoft.Search/searchServices",
+              "apiVersion": "2022-09-01",
+              "name": "[format('{0}-search-{1}', parameters('name'), parameters('resourceToken'))]",
+              "location": "[variables('location')]",
+              "sku": {
+                "name": "basic"
+              }
+            },
+            {
+              "type": "Microsoft.Web/sites",
+              "apiVersion": "2020-06-01",
+              "name": "[format('{0}-app-{1}', parameters('name'), parameters('resourceToken'))]",
+              "location": "[variables('location')]",
+              "properties": {
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', format('{0}-app-{1}', parameters('name'), parameters('resourceToken')))]",
+                "siteConfig": {
+                  "linuxFxVersion": "DOCKER|crobuaidev.azurecr.io/mycompanycopilot:latest",
+                  "appSettings": [
+                    {
+                      "name": "AZURE_AD_CLIENT_ID",
+                      "value": "[parameters('clientId')]"
+                    },
+                    {
+                      "name": "AZURE_AD_CLIENT_SECRET",
+                      "value": "[parameters('clientSecret')]"
+                    },
+                    {
+                      "name": "AZURE_AD_TENANT_ID",
+                      "value": "[parameters('tenantId')]"
+                    },
+                    {
+                      "name": "DOCKER_REGISTRY_SERVER_PASSWORD",
+                      "value": ""
+                    },
+                    {
+                      "name": "DOCKER_REGISTRY_SERVER_URL",
+                      "value": ""
+                    },
+                    {
+                      "name": "DOCKER_REGISTRY_SERVER_USERNAME",
+                      "value": ""
+                    },
+                    {
+                      "name": "AZURE_COSMOSDB_URI",
+                      "value": "[reference(resourceId('Microsoft.DocumentDB/databaseAccounts', format('{0}-cosmos-{1}', parameters('name'), parameters('resourceToken'))), '2023-04-15').documentEndpoint]"
+                    },
+                    {
+                      "name": "AZURE_COSMOSDB_KEY",
+                      "value": "[listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', format('{0}-cosmos-{1}', parameters('name'), parameters('resourceToken'))), '2023-04-15').primaryMasterKey]"
+                    },
+                    {
+                      "name": "AZURE_OPENAI_API_KEY",
+                      "value": "[listKeys(resourceId('Microsoft.CognitiveServices/accounts', format('{0}-openai-{1}', parameters('name'), parameters('resourceToken'))), '2023-05-01').key1]"
+                    },
+                    {
+                      "name": "AZURE_OPENAI_API_INSTANCE_NAME",
+                      "value": "[format('{0}-openai-{1}', parameters('name'), parameters('resourceToken'))]"
+                    },
+                    {
+                      "name": "AZURE_OPENAI_API_DEPLOYMENT_NAME",
+                      "value": "gpt35t"
+                    },
+                    {
+                      "name": "AZURE_OPENAI_API_EMBEDDINGS_DEPLOYMENT_NAME",
+                      "value": "embedding"
+                    },
+                    {
+                      "name": "AZURE_OPENAI_API_VERSION",
+                      "value": "2023-03-15-preview"
+                    },
+                    {
+                      "name": "AZURE_SEARCH_API_KEY",
+                      "value": "[listAdminKeys(resourceId('Microsoft.Search/searchServices', format('{0}-search-{1}', parameters('name'), parameters('resourceToken'))), '2022-09-01').primaryKey]"
+                    },
+                    {
+                      "name": "AZURE_SEARCH_NAME",
+                      "value": "[format('{0}-search-{1}', parameters('name'), parameters('resourceToken'))]"
+                    },
+                    {
+                      "name": "AZURE_SEARCH_INDEX_NAME",
+                      "value": "azure-chatgpt"
+                    },
+                    {
+                      "name": "AZURE_SEARCH_API_VERSION",
+                      "value": "2023-07-01-Preview"
+                    },
+                    {
+                      "name": "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT",
+                      "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('{0}-formrecognizer-{1}', parameters('name'), parameters('resourceToken'))), '2023-05-01').endpoint]"
+                    },
+                    {
+                      "name": "AZURE_DOCUMENT_INTELLIGENCE_KEY",
+                      "value": "[listKeys(resourceId('Microsoft.CognitiveServices/accounts', format('{0}-formrecognizer-{1}', parameters('name'), parameters('resourceToken'))), '2023-05-01').key1]"
+                    },
+                    {
+                      "name": "WEBSITES_PORT",
+                      "value": "3000"
+                    },
+                    {
+                      "name": "NEXTAUTH_SECRET",
+                      "value": "[format('{0}app{1}', parameters('name'), parameters('resourceToken'))]"
+                    },
+                    {
+                      "name": "NEXTAUTH_URL",
+                      "value": "[format('https://{0}-app-{1}.azurewebsites.net', parameters('name'), parameters('resourceToken'))]"
+                    },
+                    {
+                      "name": "AZURE_STORAGE_ACCOUNT_NAME",
+                      "value": "[format('{0}blob{1}', parameters('name'), parameters('resourceToken'))]"
+                    },
+                    {
+                      "name": "AZURE_STORAGE_ACCOUNT_KEY",
+                      "value": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', format('{0}blob{1}', parameters('name'), parameters('resourceToken'))), '2023-01-01').keys[0].value]"
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', format('{0}-app-{1}', parameters('name'), parameters('resourceToken')))]",
+                "[resourceId('Microsoft.Search/searchServices', format('{0}-search-{1}', parameters('name'), parameters('resourceToken')))]",
+                "[resourceId('Microsoft.Storage/storageAccounts', format('{0}blob{1}', parameters('name'), parameters('resourceToken')))]",
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', format('{0}-cosmos-{1}', parameters('name'), parameters('resourceToken')))]",
+                "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}-formrecognizer-{1}', parameters('name'), parameters('resourceToken')))]",
+                "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}-openai-{1}', parameters('name'), parameters('resourceToken')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.DocumentDB/databaseAccounts",
+              "apiVersion": "2023-04-15",
+              "name": "[format('{0}-cosmos-{1}', parameters('name'), parameters('resourceToken'))]",
+              "location": "[variables('location')]",
+              "kind": "GlobalDocumentDB",
+              "properties": {
+                "databaseAccountOfferType": "Standard",
+                "locations": [
+                  {
+                    "locationName": "[variables('location')]",
+                    "failoverPriority": 0
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases",
+              "apiVersion": "2023-04-15",
+              "name": "[format('{0}/{1}', format('{0}-cosmos-{1}', parameters('name'), parameters('resourceToken')), 'chat')]",
+              "properties": {
+                "resource": {
+                  "id": "chat"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', format('{0}-cosmos-{1}', parameters('name'), parameters('resourceToken')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+              "apiVersion": "2023-04-15",
+              "name": "[format('{0}/{1}/{2}', format('{0}-cosmos-{1}', parameters('name'), parameters('resourceToken')), 'chat', 'history')]",
+              "properties": {
+                "resource": {
+                  "id": "history",
+                  "partitionKey": {
+                    "paths": [
+                      "/userId"
+                    ]
+                  }
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', format('{0}-cosmos-{1}', parameters('name'), parameters('resourceToken')), 'chat')]"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

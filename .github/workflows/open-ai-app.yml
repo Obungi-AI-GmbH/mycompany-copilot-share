@@ -1,0 +1,83 @@
+name: Build & deploy Next.js app to Azure Web App
+
+# When this action will be executed
+on:
+  # Automatically trigger it when detected changes in repo
+  push:
+    branches: [main]
+
+  # Allow manual workflow trigger
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🌱 Checkout to the branch
+        uses: actions/checkout@v3
+
+      - name: 🍏 Set up Node.js version
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18.x"
+
+      - name: ⚙️ npm install and build
+        run: |
+          cd ./src
+          npm install
+          npm run build --if-present
+          cd ..
+
+      - name: 📂 Copy standalone into the root
+        run: cp -R ./src/.next/standalone ./site-deploy
+
+      - name: 📂 Copy static into the .next folder
+        run: cp -R ./src/.next/static ./site-deploy/.next/static
+
+      - name: 📂 Copy Public folder
+        run: cp -R ./src/public ./site-deploy/public
+
+      - name: 📦 Package Next application
+        run: |
+          cd ./site-deploy
+          zip Nextjs-site.zip ./* .next -qr      
+          
+      - name: 🔍 Diagnostics
+        run: |
+          ls ./src
+          ls ./src/.next
+          ls ./site-deploy
+
+      - name: ⬆️ Publish Next Application artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: Nextjs-site
+          path: ./site-deploy/Nextjs-site.zip
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: "Production"
+
+    steps:
+      - name: ⬇️ Download artifact from build job
+        uses: actions/download-artifact@v3
+        with:
+          name: Nextjs-site
+
+      - name: 🗝️ Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: 🚀 Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ secrets.AZURE_APP_SERVICE_NAME }}
+          package: ${{ github.workspace }}/Nextjs-site.zip
+
+      - name: 🧹 Cleanup
+        run: rm ${{ github.workspace }}/Nextjs-site.zip
